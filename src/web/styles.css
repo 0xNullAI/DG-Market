@@ -452,10 +452,19 @@ select {
   gap: 8px;
   margin-top: 4px;
 }
+.role-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 .role-row {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+.role-persona {
+  width: 100%;
+  font-size: 12px;
 }
 .role-row .role-name {
   flex: 0 0 32%;
@@ -537,6 +546,15 @@ select {
   font-size: 12px;
   color: var(--text-soft);
   line-height: 1.5;
+}
+.role-persona-view {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--text-soft);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  border-top: 1px dashed var(--surface-border);
+  padding-top: 6px;
 }
 .ai-tag {
   font-size: 10px;

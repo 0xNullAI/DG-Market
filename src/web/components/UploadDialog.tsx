@@ -60,14 +60,16 @@ export function UploadDialog({ siteKey, onClose, onUploaded }: Props): JSX.Eleme
   const [playerMin, setPlayerMin] = useState('2');
   const [playerMax, setPlayerMax] = useState('4');
   const [aiMode, setAiMode] = useState<'none' | 'solo' | 'multi'>('none');
-  const [roles, setRoles] = useState<{ name: string; description: string; aiPlayable: boolean }[]>([
-    { name: '', description: '', aiPlayable: false },
+  const [roles, setRoles] = useState<{ name: string; description: string; aiPlayable: boolean; aiPersona: string }[]>([
+    { name: '', description: '', aiPlayable: false, aiPersona: '' },
   ]);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const updateRole = (i: number, patch: Partial<{ name: string; description: string; aiPlayable: boolean }>) =>
-    setRoles((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
-  const addRole = () => setRoles((rs) => [...rs, { name: '', description: '', aiPlayable: false }]);
+  const updateRole = (
+    i: number,
+    patch: Partial<{ name: string; description: string; aiPlayable: boolean; aiPersona: string }>,
+  ) => setRoles((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  const addRole = () => setRoles((rs) => [...rs, { name: '', description: '', aiPlayable: false, aiPersona: '' }]);
   const removeRole = (i: number) => setRoles((rs) => (rs.length > 1 ? rs.filter((_, idx) => idx !== i) : rs));
 
   const handleFile = async (files: FileList | null) => {
@@ -147,6 +149,7 @@ export function UploadDialog({ siteKey, onClose, onUploaded }: Props): JSX.Eleme
             name: r.name.trim(),
             description: r.description.trim() || undefined,
             aiPlayable: r.aiPlayable || undefined,
+            aiPersona: (r.aiPlayable && r.aiPersona.trim()) || undefined,
           }));
         if (cleanRoles.length === 0) return setError('至少填写一个角色');
         const mn = Math.max(1, Number(playerMin) || 1);
@@ -299,28 +302,40 @@ export function UploadDialog({ siteKey, onClose, onUploaded }: Props): JSX.Eleme
               <span>角色 * — 每人扮演一个</span>
               <div className="role-list">
                 {roles.map((r, i) => (
-                  <div key={i} className="role-row">
-                    <input
-                      className="role-name"
-                      value={r.name}
-                      onChange={(e) => updateRole(i, { name: e.target.value })}
-                      maxLength={40}
-                      placeholder={`角色 ${i + 1}`}
-                    />
-                    <input
-                      className="role-desc"
-                      value={r.description}
-                      onChange={(e) => updateRole(i, { description: e.target.value })}
-                      maxLength={300}
-                      placeholder="角色描述（可选）"
-                    />
-                    <label className="role-ai" title="该角色可由 AI 扮演">
-                      <input type="checkbox" checked={r.aiPlayable} onChange={(e) => updateRole(i, { aiPlayable: e.target.checked })} />
-                      AI
-                    </label>
-                    <button type="button" className="icon-btn" onClick={() => removeRole(i)} disabled={roles.length <= 1}>
-                      ✕
-                    </button>
+                  <div key={i} className="role-item">
+                    <div className="role-row">
+                      <input
+                        className="role-name"
+                        value={r.name}
+                        onChange={(e) => updateRole(i, { name: e.target.value })}
+                        maxLength={40}
+                        placeholder={`角色 ${i + 1}`}
+                      />
+                      <input
+                        className="role-desc"
+                        value={r.description}
+                        onChange={(e) => updateRole(i, { description: e.target.value })}
+                        maxLength={300}
+                        placeholder="角色描述（可选）"
+                      />
+                      <label className="role-ai" title="该角色可由 AI 扮演">
+                        <input type="checkbox" checked={r.aiPlayable} onChange={(e) => updateRole(i, { aiPlayable: e.target.checked })} />
+                        AI
+                      </label>
+                      <button type="button" className="icon-btn" onClick={() => removeRole(i)} disabled={roles.length <= 1}>
+                        ✕
+                      </button>
+                    </div>
+                    {r.aiPlayable && (
+                      <textarea
+                        className="role-persona"
+                        rows={3}
+                        value={r.aiPersona}
+                        onChange={(e) => updateRole(i, { aiPersona: e.target.value })}
+                        maxLength={2000}
+                        placeholder="AI 人设（给 AI 的详细身份/口吻/动机，可选）"
+                      />
+                    )}
                   </div>
                 ))}
               </div>

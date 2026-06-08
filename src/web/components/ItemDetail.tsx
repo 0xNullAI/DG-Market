@@ -94,6 +94,7 @@ export function ItemDetail({ item, onClose }: Props): JSX.Element {
                         {r.aiPlayable && <span className="ai-tag">AI 可</span>}
                       </strong>
                       {r.description && <p>{r.description}</p>}
+                      {r.aiPersona && <p className="role-persona-view">AI 人设：{r.aiPersona}</p>}
                     </div>
                   ))}
                 </div>
