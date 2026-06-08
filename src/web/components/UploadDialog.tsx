@@ -131,13 +131,15 @@ export function UploadDialog({ siteKey, onClose, onUploaded }: Props): JSX.Eleme
         };
       } else if (type === 'scenario') {
         if (!prompt.trim()) return setError('请填写场景提示词');
+        // 单人场景始终带「DG Agent」标签（去重、限 6 个）。
+        const scenarioTags = tags.includes('DG Agent') ? tags : ['DG Agent', ...tags].slice(0, 6);
         payload = {
           type: 'scenario',
           name: name.trim(),
           description: description.trim() || undefined,
           author: author.trim() || undefined,
           icon: icon.trim() || undefined,
-          tags,
+          tags: scenarioTags,
           content: { prompt: prompt.trim() },
           turnstileToken: token,
         };
@@ -189,17 +191,32 @@ export function UploadDialog({ siteKey, onClose, onUploaded }: Props): JSX.Eleme
           </button>
         </header>
 
-        <div className="seg">
-          <button className={type === 'waveform' ? 'active' : ''} onClick={() => setType('waveform')}>
-            波形
-          </button>
-          <button className={type === 'scenario' ? 'active' : ''} onClick={() => setType('scenario')}>
-            场景
-          </button>
-          <button className={type === 'multi-scene' ? 'active' : ''} onClick={() => setType('multi-scene')}>
-            多人场景
-          </button>
+        <div className="tab-group">
+          <div className="seg">
+            <button
+              className={type === 'scenario' || type === 'multi-scene' ? 'active' : ''}
+              onClick={() => setType((t) => (t === 'waveform' ? 'scenario' : t))}
+            >
+              场景
+            </button>
+            <button className={type === 'waveform' ? 'active' : ''} onClick={() => setType('waveform')}>
+              波形
+            </button>
+          </div>
+          {(type === 'scenario' || type === 'multi-scene') && (
+            <div className="seg seg-sub">
+              <button className={type === 'scenario' ? 'active' : ''} onClick={() => setType('scenario')}>
+                单人
+              </button>
+              <button className={type === 'multi-scene' ? 'active' : ''} onClick={() => setType('multi-scene')}>
+                多人
+              </button>
+            </div>
+          )}
         </div>
+        {type === 'scenario' && (
+          <p className="upload-note">单人场景将自动标记 DG Agent，供 DG-Agent 导入。</p>
+        )}
 
         <label className="field">
           <span>名称 *</span>
@@ -280,13 +297,14 @@ export function UploadDialog({ siteKey, onClose, onUploaded }: Props): JSX.Eleme
                 placeholder="描述这个多人场景的世界观、氛围、规则…"
               />
             </label>
+            <p className="upload-note">推荐人数会显著影响匹配，建议认真填写。</p>
             <div className="row">
               <label className="field">
-                <span>人数（最少）</span>
+                <span>推荐人数（最少）★</span>
                 <input type="number" min={1} max={50} value={playerMin} onChange={(e) => setPlayerMin(e.target.value)} />
               </label>
               <label className="field">
-                <span>人数（最多）</span>
+                <span>推荐人数（最多）★</span>
                 <input type="number" min={1} max={50} value={playerMax} onChange={(e) => setPlayerMax(e.target.value)} />
               </label>
               <label className="field">
