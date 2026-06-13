@@ -83,22 +83,51 @@ export function UploadDialog({ siteKey, onClose, onUploaded }: Props): JSX.Eleme
     URL.revokeObjectURL(url);
   };
 
-  // 当前类型的 JSON 模板（含字段占位与说明）。
+  // 当前类型的 JSON 模板：用一份可直接上传的示例内容填好，照着改字段即可。
+  // 公共可填字段：name 名称(必填) / author 上传者昵称 / description 简介 / tags 标签。
   const templateFor = (t: ItemType): unknown => {
     if (t === 'waveform')
-      return { type: 'waveform', name: '', icon: '〰️', tags: [], content: { frames: [[10, 50], [20, 60]], pulse: '' } };
+      return {
+        type: 'waveform',
+        name: '示例波形 · 渐强脉冲',
+        author: '你的昵称（可选，留空则匿名）',
+        description: '由弱到强再回落的循环脉冲，适合作为前戏铺垫。',
+        tags: ['渐强', '节奏感'],
+        // frames：[编码频率(10..240), 强度(0..100)]，一帧约 25ms。也可改填 pulse 文本。
+        content: {
+          frames: [[10, 20], [15, 40], [20, 60], [25, 80], [20, 60], [15, 40]],
+          pulse: '',
+        },
+      };
     if (t === 'scenario')
-      return { type: 'scenario', name: '', icon: '🎭', tags: ['DG Agent'], content: { prompt: '在这里写场景提示词…' } };
+      return {
+        type: 'scenario',
+        name: '示例场景 · 雨夜便利店',
+        author: '你的昵称（可选，留空则匿名）',
+        description: '深夜值班的便利店店员，与一位常客之间的暧昧拉扯。',
+        icon: '🎭',
+        tags: ['DG Agent', '日常', '都市'],
+        content: {
+          prompt:
+            '你是一家深夜便利店的店员，店里只剩你和一位每晚都来的熟客。外面下着大雨，气氛安静而暧昧。请以第一人称展开这段相遇…',
+        },
+      };
     return {
       type: 'multi-scene',
-      name: '',
+      name: '示例多人场景 · 末日避难所',
+      author: '你的昵称（可选，留空则匿名）',
+      description: '资源枯竭的地下避难所里，幸存者们为生存与权力博弈。',
       icon: '🎬',
-      tags: [],
+      tags: ['末日', '生存', '权谋'],
       content: {
-        setting: '世界观 / 背景描述…',
+        setting:
+          '一座末日后的地下避难所，物资濒临耗尽，外面是被污染的废土。幸存者必须在猜疑与合作之间做出选择。',
         playerCount: { min: 2, max: 4 },
-        aiMode: 'none',
-        roles: [{ name: '角色名', description: '角色描述 / AI 人设', aiPlayable: false }],
+        aiMode: 'none', // none 纯人 / solo 单个 AI / multi 多个 AI
+        roles: [
+          { name: '避难所主管', description: '掌握物资分配权的冷静领袖，信奉秩序高于一切。', aiPlayable: false },
+          { name: '流浪医生', description: '唯一懂医术的外来者，立场暧昧、动机成谜。', aiPlayable: true },
+        ],
       },
     };
   };
@@ -118,6 +147,7 @@ export function UploadDialog({ siteKey, onClose, onUploaded }: Props): JSX.Eleme
       const t = (j.type as ItemType) ?? type;
       setType(t);
       if (typeof j.name === 'string') setName(j.name);
+      if (typeof j.author === 'string') setAuthor(j.author);
       if (typeof j.icon === 'string') setIcon(j.icon);
       if (typeof j.description === 'string') setDescription(j.description);
       if (Array.isArray(j.tags)) setTagsText((j.tags as string[]).join(', '));
