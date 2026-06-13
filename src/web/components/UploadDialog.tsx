@@ -137,38 +137,63 @@ export function UploadDialog({ siteKey, onClose, onUploaded }: Props): JSX.Eleme
     downloadText(fn, JSON.stringify(templateFor(type), null, 2));
   };
 
-  // 导入填好的 JSON 模板，回填整个表单（仍需在表单点「上传」完成人机校验）。
+  // 把一份模板对象回填到表单，返回解析出的类型。
+  const applyTemplate = (j: Record<string, unknown>): ItemType => {
+    const c = (j.content ?? {}) as Record<string, unknown>;
+    const t = (j.type as ItemType) ?? type;
+    setType(t);
+    if (typeof j.name === 'string') setName(j.name);
+    if (typeof j.author === 'string') setAuthor(j.author);
+    if (typeof j.icon === 'string') setIcon(j.icon);
+    if (typeof j.description === 'string') setDescription(j.description);
+    if (Array.isArray(j.tags)) setTagsText((j.tags as string[]).join(', '));
+    if (t === 'waveform') {
+      setWaveInput(typeof c.pulse === 'string' && c.pulse ? c.pulse : JSON.stringify(c.frames ?? []));
+    } else if (t === 'scenario') {
+      if (typeof c.prompt === 'string') setPrompt(c.prompt);
+    } else {
+      if (typeof c.setting === 'string') setSetting(c.setting);
+      const pc = (c.playerCount ?? {}) as { min?: number; max?: number };
+      if (pc.min != null) setPlayerMin(String(pc.min));
+      if (pc.max != null) setPlayerMax(String(pc.max));
+      if (c.aiMode === 'none' || c.aiMode === 'solo' || c.aiMode === 'multi') setAiMode(c.aiMode);
+      if (Array.isArray(c.roles))
+        setRoles(
+          (c.roles as Record<string, unknown>[]).map((r) => ({
+            name: String(r.name ?? ''),
+            description: String(r.description ?? ''),
+            aiPlayable: !!r.aiPlayable,
+          })),
+        );
+    }
+    return t;
+  };
+
+  // 导入填好的模板，回填整个表单（仍需在表单点「上传」完成人机校验）。
+  // 支持：.json 模板、.pulse 波形文件，以及含 .json/.pulse 的 .zip 压缩包。
   const importTemplate = async (files: FileList | null) => {
     const file = files?.[0];
     if (!file) return;
     try {
-      const j = JSON.parse(await file.text()) as Record<string, unknown>;
-      const c = (j.content ?? {}) as Record<string, unknown>;
-      const t = (j.type as ItemType) ?? type;
-      setType(t);
-      if (typeof j.name === 'string') setName(j.name);
-      if (typeof j.author === 'string') setAuthor(j.author);
-      if (typeof j.icon === 'string') setIcon(j.icon);
-      if (typeof j.description === 'string') setDescription(j.description);
-      if (Array.isArray(j.tags)) setTagsText((j.tags as string[]).join(', '));
-      if (t === 'waveform') {
-        setWaveInput(typeof c.pulse === 'string' && c.pulse ? c.pulse : JSON.stringify(c.frames ?? []));
-      } else if (t === 'scenario') {
-        if (typeof c.prompt === 'string') setPrompt(c.prompt);
+      if (/\.zip$/i.test(file.name)) {
+        const entries = unzipSync(new Uint8Array(await file.arrayBuffer()));
+        const names = Object.keys(entries).filter((n) => !n.startsWith('__'));
+        const jsonName = names.find((n) => /\.json$/i.test(n));
+        const pulseName = names.find((n) => /\.pulse$/i.test(n));
+        if (jsonName) {
+          const t = applyTemplate(JSON.parse(strFromU8(entries[jsonName]!)) as Record<string, unknown>);
+          // 同包内若另带 .pulse，且是波形，用原始 pulse 文本覆盖并预览
+          if (pulseName && t === 'waveform') tryPreview(strFromU8(entries[pulseName]!));
+        } else if (pulseName) {
+          // 只有 .pulse：按波形导入
+          importPulseText(strFromU8(entries[pulseName]!), pulseName.replace(/.*\//, '').replace(/\.pulse$/i, ''));
+        } else {
+          throw new Error('压缩包里没有 .json 模板或 .pulse 文件');
+        }
+      } else if (/\.pulse$/i.test(file.name)) {
+        importPulseText(await file.text(), file.name.replace(/\.pulse$/i, ''));
       } else {
-        if (typeof c.setting === 'string') setSetting(c.setting);
-        const pc = (c.playerCount ?? {}) as { min?: number; max?: number };
-        if (pc.min != null) setPlayerMin(String(pc.min));
-        if (pc.max != null) setPlayerMax(String(pc.max));
-        if (c.aiMode === 'none' || c.aiMode === 'solo' || c.aiMode === 'multi') setAiMode(c.aiMode);
-        if (Array.isArray(c.roles))
-          setRoles(
-            (c.roles as Record<string, unknown>[]).map((r) => ({
-              name: String(r.name ?? ''),
-              description: String(r.description ?? ''),
-              aiPlayable: !!r.aiPlayable,
-            })),
-          );
+        applyTemplate(JSON.parse(await file.text()) as Record<string, unknown>);
       }
       setError('');
     } catch (e) {
@@ -176,6 +201,14 @@ export function UploadDialog({ siteKey, onClose, onUploaded }: Props): JSX.Eleme
     } finally {
       if (tplRef.current) tplRef.current.value = '';
     }
+  };
+
+  // 把一段 .pulse 文本当作波形回填（名称留空时用内嵌名 / 文件名）。
+  const importPulseText = (text: string, fallbackName: string) => {
+    setType('waveform');
+    const { name: pulseName } = parsePulseText(text);
+    if (!name.trim()) setName(pulseName || fallbackName);
+    tryPreview(text);
   };
 
   const handleFile = async (files: FileList | null) => {
@@ -328,13 +361,18 @@ export function UploadDialog({ siteKey, onClose, onUploaded }: Props): JSX.Eleme
           <button type="button" className="btn tpl-btn" onClick={downloadTemplate}>
             ⬇ 下载模板
           </button>
-          <button type="button" className="btn tpl-btn" onClick={() => tplRef.current?.click()}>
-            ⬆ 导入填好的模板
+          <button
+            type="button"
+            className="btn tpl-btn"
+            onClick={() => tplRef.current?.click()}
+            title="支持 .json 模板 / .pulse 波形 / 含两者的 .zip 压缩包"
+          >
+            ⬆ 导入模板 / 压缩包
           </button>
           <input
             ref={tplRef}
             type="file"
-            accept=".json,application/json"
+            accept=".json,.zip,.pulse,application/json,application/zip"
             style={{ display: 'none' }}
             onChange={(e) => importTemplate(e.target.files)}
           />
